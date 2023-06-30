@@ -49,8 +49,7 @@
         ],
     }).setView([46.86584459507945, 2.4942937666232954], 6);
 
-    var marker;
-
+    let marker;
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: 'Map data &copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors',
@@ -58,8 +57,8 @@
     }).addTo(map);
 
     function onMapClick(e) {
-        var lat = e.latlng.lat.toFixed(6);
-        var long = e.latlng.lng.toFixed(6);
+        let lat = e.latlng.lat.toFixed(6);
+        let long = e.latlng.lng.toFixed(6);
 
 
         if (marker) {
@@ -69,16 +68,20 @@
 
         document.getElementById('info').innerHTML = 'Chargement...';
 
-        var xhr = new XMLHttpRequest();
-        xhr.onreadystatechange = function () {
-            if (xhr.readyState === 4 && xhr.status === 200) {
-                document.getElementById('info').innerHTML = xhr.responseText;
-            }
-        };
+        fetch('/get_geo_info', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({lat: lat, long: long})
+        }).then((r) => {
+            return r.json()
+        }).then((o) => {
 
-        xhr.open('POST', '/get_geo_info', true);
-        xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
-        xhr.send('lat=' + lat + '&long=' + long);
+            let names = o.names
+
+            let innerUl = names.map((value) => `<li>${value}</li>`).join('')
+
+            document.getElementById('info').innerHTML = `<ul>${innerUl}</ul>`
+        })
     }
 
     map.on('click', onMapClick);
