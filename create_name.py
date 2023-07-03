@@ -2,7 +2,6 @@ import json
 import logging
 import os.path
 import time
-import pickle
 from pathlib import Path
 
 from geopy.distance import geodesic
@@ -15,10 +14,6 @@ LENGTH_MIN = 4
 LENGTH_MAX = 40
 DISTANCE_POWER = 1.8
 
-
-# TODO trouver une façon de serialiser un modele en prenant moins de place
-# Proposition: remplacer la matrice par un np.array assortie d'une liste de nuples
-# attention la liste des nuples initiaux ne contient pas tous les nuples
 
 class MarkovModel:
     END_TOKEN = '\n'
