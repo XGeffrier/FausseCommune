@@ -59,7 +59,6 @@ class MarkovModel:
         self._model_matrix: dict[str, list[float]] = {}
 
     def save(self, dir_path):
-        raise NotImplementedError
         matrix_values = np.array(list(self._model_matrix.values()))
         init_coeffs = np.array(self._all_init_coeffs)
         other_data = {
@@ -74,12 +73,45 @@ class MarkovModel:
             "matrix_nuples": list(self._model_matrix.keys())
         }
         Path(dir_path).mkdir(parents=True, exist_ok=True)
-        matrix_values.save()
 
+        numpy_file_path = os.path.join(dir_path, "coeffs.npy")
+        data_file_path = os.path.join(dir_path, "data.json")
+        with open(numpy_file_path, 'wb') as f:
+            np.save(f, matrix_values)
+            np.save(f, init_coeffs)
+        with open(data_file_path, "w") as f:
+            json.dump(other_data, f)
 
-    def load(self, dir_path):
-        raise NotImplementedError
-        pass
+    @classmethod
+    def load(self, dir_path) -> "MarkovModel":
+        numpy_file_path = os.path.join(dir_path, "coeffs.npy")
+        data_file_path = os.path.join(dir_path, "data.json")
+        if not (os.path.isfile(numpy_file_path) and os.path.isfile(data_file_path)):
+            raise ValueError("Unable to find saved data.")
+
+        with open(numpy_file_path, "rb") as f:
+            matrix_values = np.load(f)
+            init_coeffs = np.load(f)
+        with open(data_file_path) as f:
+            data = json.load(f)
+        coords = data["coords"]
+        order = data["order"]
+        length_min = data["length_min"]
+        length_max = data["length_max"]
+        distance_power = data["distance_power"]
+        trained = data["trained"]
+        init_nuples = data["init_nuples"]
+        all_tokens = data["all_tokens"]
+        matrix_nuples = data["matrix_nuples"]
+
+        model = MarkovModel(coords, order, length_min, length_max, distance_power)
+        model.trained = trained
+        model._all_init_nuples = init_nuples
+        model._all_init_coeffs = init_coeffs
+        model._model_matrix = {nuple: matrix_values[i] for i, nuple in enumerate(matrix_nuples)}
+        model._all_tokens = all_tokens
+
+        return model
 
     @property
     def data(self) -> pd.DataFrame:
@@ -305,38 +337,42 @@ def create_and_train_all_models(size_grid: int,
                                 length_min: int = LENGTH_MIN,
                                 length_max: int = LENGTH_MAX,
                                 distance_power: float = DISTANCE_POWER,
-                                dir_path: str = "models") -> list[MarkovModel]:
+                                models_dir_path: str = "models") -> list[MarkovModel]:
     """
     Find coords meshing France, then compute model for each pair of coords.
     """
     # try to load models
-    filename = f"models_{size_grid}_{order}_{length_min}_{length_max}_{distance_power}.b"
-    filepath = os.path.join(dir_path, filename)
-    if os.path.isfile(filepath):
-        with open(filepath, 'rb') as f:
-            models = pickle.load(f)
+    sub_dir_name = f"models_{size_grid}_{order}_{length_min}_{length_max}_{distance_power}"
+    sub_dir_path = os.path.join(models_dir_path, sub_dir_name)
+    if os.path.isdir(sub_dir_path):
+        models = []
+        for elt in os.listdir(sub_dir_path):
+            if elt.startswith("model"):
+                elt_path = os.path.join(sub_dir_path, elt)
+                if os.path.isdir(elt_path):
+                    models.append(MarkovModel.load(elt_path))
+        return models
 
-    else:
-        # find centers
-        logging.debug(f"Checking if {size_grid}^2 = {size_grid ** 2} points are in France...")
-        all_coords = generate_grid_coords(size_grid)
-        print(all_coords)
+    # find centers
+    logging.debug(f"Checking if {size_grid}^2 = {size_grid ** 2} points are in France...")
+    all_coords = generate_grid_coords(size_grid)
+    logging.debug("Coords of the models to train: ")
+    logging.debug(str(all_coords))
 
-        # create models
-        logging.debug(f"{len(all_coords)} points found. Creating models...")
-        models = [MarkovModel(coords, order, length_min, length_max, distance_power)
-                  for coords in all_coords]
+    # create models
+    logging.debug(f"{len(all_coords)} points found. Creating models...")
+    models = [MarkovModel(coords, order, length_min, length_max, distance_power)
+              for coords in all_coords]
 
-        # train models
-        logging.debug(f"Models created. Training...")
-        for i, model in enumerate(models):
-            logging.debug(f"{i + 1}/{len(models)}")
-            model.train()
+    # train models
+    logging.debug(f"Models created. Training...")
+    for i, model in enumerate(models):
+        logging.debug(f"{i + 1}/{len(models)}")
+        model.train()
 
-        # save models
-        Path(dir_path).mkdir(parents=True, exist_ok=True)
-        with open(filepath, 'wb') as f:
-            pickle.dump(models, f)
+    # save models
+    for i, model in enumerate(models):
+        model.save(os.path.join(sub_dir_path, f"model_{i}"))
     return models
 
 
@@ -345,7 +381,7 @@ if __name__ == '__main__':
     COORDS_BUISSON = 47.238766631730776, 3.110139518759569
     start = time.time()
 
-    models = create_and_train_all_models(50)
+    models = create_and_train_all_models(10)
     models_trained = time.time()
 
     end_model = MarkovModel.mix_models(models, COORDS_BUISSON)
