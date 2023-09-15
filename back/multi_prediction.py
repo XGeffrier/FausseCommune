@@ -3,7 +3,7 @@ import os
 from typing import Optional
 
 from back.external import load_france_shape
-from back.markov_models import MarkovModel, LENGTH_MIN, LENGTH_MAX, DISTANCE_POWER
+from back.markov_model import MarkovModel, LENGTH_MIN, LENGTH_MAX, DISTANCE_POWER
 from back.math_utils import generate_grid_coords
 
 

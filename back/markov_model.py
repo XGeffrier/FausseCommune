@@ -7,6 +7,7 @@ import pandas as pd
 import numpy as np
 from unidecode import unidecode
 
+from back.external import fetch_communes_data
 from math_utils import coords_dist
 
 LENGTH_MIN = 4
@@ -180,16 +181,10 @@ class MarkovModel:
     @property
     def communes_data(self) -> pd.DataFrame:
         if self._data is None:
-            self._data = MarkovModel.fetch_communes_data()
+            self._data = fetch_communes_data()
+            self._data["nom_commune_clean"] = self._data["nom_commune_complet"].apply(
+                lambda s: MarkovModel._clean_input_name(s))
         return self._data
-
-    @classmethod
-    def fetch_communes_data(cls) -> pd.DataFrame:
-        path = "https://www.data.gouv.fr/fr/datasets/r/dbe8a621-a9c4-4bc3-9cae-be1699c5ff25"
-        df = pd.read_csv(path)
-        df = df[["nom_commune_complet", "latitude", "longitude"]]
-        df["nom_commune_clean"] = df["nom_commune_complet"].apply(lambda s: MarkovModel._clean_input_name(s))
-        return df.dropna()
 
     @classmethod
     def find_and_mix_models_for_coords(cls,
@@ -202,7 +197,6 @@ class MarkovModel:
         """
         dists = [coords_dist(model.coords, coords) for model in models]
         close_models = sorted(models, key=lambda m: dists[models.index(m)])[:nb_considered]
-        print([m.coords for m in close_models])
         dists = sorted(dists)[:nb_considered]
         m = close_models[0]
 
@@ -295,5 +289,3 @@ class MarkovModel:
         name = '-'.join(words)
 
         return name
-
-
