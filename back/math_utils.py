@@ -1,12 +1,10 @@
-import json
-
 import numpy as np
 from geopy.distance import geodesic
 
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    import shapely.lib
+    import shapely.geometry
 
 
 def coords_dist(coords_a: tuple[float, float], coords_b: tuple[float, float]) -> float:
@@ -16,11 +14,11 @@ def coords_dist(coords_a: tuple[float, float], coords_b: tuple[float, float]) ->
     return geodesic(coords_a, coords_b).km
 
 
-def generate_grid_coords(mask_shape: "shapely.lib.Geometry", size_grid: int = 50) -> list[tuple[float, float]]:
+def generate_grid_coords(mask_shape: "shapely.geometry.shape", size_grid: int = 50) -> list[tuple[float, float]]:
     """
     Return (latitude, longitude) coords of points evenly distributed in France.
     """
-    from shapely.geometry import shape, Point
+    from shapely.geometry import Point
 
     min_long, min_lat, max_long, max_lat = mask_shape.bounds
     lats = np.linspace(min_lat, max_lat, size_grid)
@@ -33,4 +31,7 @@ def generate_grid_coords(mask_shape: "shapely.lib.Geometry", size_grid: int = 50
 
 
 if __name__ == '__main__':
-    generate_grid_coords()
+    from back.external import load_france_shape
+
+    france_shape = load_france_shape()
+    print(generate_grid_coords(france_shape))
