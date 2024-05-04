@@ -184,7 +184,8 @@ class MarkovModel:
 
         return model
 
-    def _is_generated_name_valid(self, name: str) -> bool:
+    @classmethod
+    def _is_generated_name_valid(cls, name: str) -> bool:
         """
         Perform several checks on a generated name.
         Since generation is really fast (once the training is done), we want to generate a lot of names and filter the
@@ -196,7 +197,7 @@ class MarkovModel:
             return False
 
         # check not existing
-        if name in self.communes_data()["nom_commune_clean"].values:
+        if name in cls.communes_data()["nom_commune_clean"].values:
             return False
 
         words = name.split()
