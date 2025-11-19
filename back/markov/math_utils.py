@@ -31,7 +31,7 @@ def generate_grid_coords(mask_shape: "shapely.geometry.shape", size_grid: int = 
 
 
 if __name__ == '__main__':
-    from back.data_interfaces.external import load_france_shape
+    from back.data_interfaces.public import load_france_shape
 
     france_shape = load_france_shape()
     print(generate_grid_coords(france_shape))

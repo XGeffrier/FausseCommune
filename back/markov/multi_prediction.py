@@ -2,7 +2,7 @@ import logging
 import os
 from typing import Optional
 
-from back.data_interfaces.external import load_france_shape
+from back.data_interfaces.public import load_france_shape
 from back.markov.markov_model import MarkovModel, LENGTH_MIN, LENGTH_MAX, DISTANCE_POWER, MixedModels
 from back.markov.math_utils import generate_grid_coords
 
