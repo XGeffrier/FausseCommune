@@ -1,4 +1,6 @@
 import os.path
+import tarfile
+import time
 import uuid
 import zipfile
 
@@ -36,17 +38,21 @@ class StorageClient:
             blob.make_public()
 
     @classmethod
-    def zip_and_upload_to_storage(cls, filepaths: list[str], gs_path: str,
+    def zip_and_upload_to_storage(cls,
+                                  dir_path: str,
+                                  gs_path: str,
                                   make_public: bool):
         """
         Return storage path of zip.
         """
         zip_filename = f"{uuid.uuid4()}.zip"
         zip_filepath = os.path.join(os.getcwd(), zip_filename)
-
         with zipfile.ZipFile(zip_filepath, 'w', zipfile.ZIP_DEFLATED) as zipf:
-            for filepath in filepaths:
-                zipf.write(filepath, arcname=os.path.basename(filepath))
+            for root, dirs, files in os.walk(dir_path):
+                for file in files:
+                    zipf.write(os.path.join(root, file),
+                               os.path.relpath(os.path.join(root, file),
+                                               os.path.join(dir_path, '..')))
 
         # Upload the zip file to storage
         cls.upload_file(cls.clean_path(gs_path), zip_filepath, content_type="application/zip", make_public=make_public)
@@ -60,6 +66,17 @@ class StorageClient:
         bucket = cls.get_default_bucket()
         blob = bucket.blob(cls.clean_path(gs_path))
         return blob.download_as_text()
+
+    @classmethod
+    def download_and_unzip(cls, gs_path: str, output_dir: str) -> tuple[float, float]:
+        """Downloads a blob into memory."""
+        bucket = cls.get_default_bucket()
+        blob = bucket.blob(cls.clean_path(gs_path))
+        blob.download_to_filename(os.path.join(output_dir, os.path.basename(gs_path)))
+        if not os.path.isdir(output_dir):
+            os.makedirs(output_dir, exist_ok=True)
+        with zipfile.ZipFile(os.path.join(output_dir, os.path.basename(gs_path)), 'r') as zip_ref:
+            zip_ref.extractall(output_dir)
 
     @classmethod
     def clean_path(cls, path: str):

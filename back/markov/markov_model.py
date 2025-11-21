@@ -129,7 +129,7 @@ class MarkovModel:
 
         return names
 
-    def save(self, dir_path):
+    def save(self, dir_path: str):
         matrix_values = np.array(list(self._model_matrix.values()))
         init_coeffs = np.array(self._all_init_coeffs)
         other_data = {
@@ -269,7 +269,8 @@ class MixedModels(MarkovModel):
         Mix models, pre-trained from distinct coords, to create an already trained model.
         Ponderate each model depending on its distance to desired coords
         """
-        super().__init__(coords, models[0].markov_order, models[0].length_min, models[0].length_max, models[0].distance_power)
+        super().__init__(coords, models[0].markov_order, models[0].length_min, models[0].length_max,
+                         models[0].distance_power)
 
         # note: this could be optimized
         dists = [coords_dist(model.center_coords, coords) for model in models]

@@ -3,8 +3,12 @@ import os
 from typing import Optional
 
 from back.data_interfaces.public import load_france_shape
+from back.data_interfaces.storage import StorageClient
 from back.markov.markov_model import MarkovModel, LENGTH_MIN, LENGTH_MAX, DISTANCE_POWER, MixedModels
 from back.markov.math_utils import generate_grid_coords
+
+def generate_name(lat, long):
+    return f"{lat}_{long}"
 
 
 def load_models_from_filesystem(sub_dir_path: str) -> Optional[list["MarkovModel"]]:
@@ -20,6 +24,14 @@ def load_models_from_filesystem(sub_dir_path: str) -> Optional[list["MarkovModel
                     models.append(MarkovModel.load_from_local_filesystem(elt_path))
         return models
     return None
+
+
+def load_models_from_gcp(expected_name: str) -> Optional[list["MarkovModel"]]:
+    """
+    Return None if not found.
+    """
+    StorageClient.download_and_unzip(expected_name, expected_name)
+    return load_models_from_filesystem(expected_name)
 
 
 def find_or_create_all_models(size_grid: int,
@@ -58,6 +70,8 @@ def find_or_create_all_models(size_grid: int,
         # save models
         for i, model in enumerate(models):
             model.save(os.path.join(sub_dir_path, f"model_{i}"))
+
+        StorageClient.zip_and_upload_to_storage(sub_dir_path, sub_dir_name, False)
     return models
 
 

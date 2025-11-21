@@ -3,10 +3,12 @@ Ce fichier a pour vocation d'être, en attendant mieux, l'entry point de CF pour
 """
 
 import os
+import time
 
-from flask import Flask
+from flask import Flask, request
 
 from back.data_interfaces.storage import StorageClient
+from back.markov.multi_prediction import generate_name
 
 app = Flask(__name__)
 
@@ -18,10 +20,18 @@ def hello_world():
     return f"Hello {name}!"
 
 
-@app.route("/bucket")
-def get_anything_from_bucket():
-    """Just to test if auth works"""
-    return StorageClient.download_string_file("gs://fausses_communes_bucket/fonctionne.txt")
+@app.route("/api/generate_name", methods=['POST'])
+def generate_name():
+    data = request.get_json()
+    lat = data['lat']
+    long = data['long']
+    return generate_name(lat, long)
+
+
+@app.route("/zip")
+def zip():
+    dl_time, extract_time = StorageClient.download_and_unzip("zip.zip", "poub")
+    return f"zip downloaded in {round(dl_time * 1000)}ms and extracted in {round(extract_time * 1000)}ms"
 
 
 if __name__ == "__main__":
