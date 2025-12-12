@@ -20,14 +20,16 @@ def hello_world():
     return f"Hello {name}!"
 
 
+@app.route("/api/get_available_models")
+def get_available_models():
+    return StorageClient.download_json_file_as_dict(StorageClient.models_json_path) or {}
+
+
 @app.route("/api/generate_name", methods=['POST'])
 def generate_name():
     data = request.get_json()
-    lat = data['lat']
-    long = data['long']
-    return generate_name(lat, long)
-
-
+    model_key = data.get('model_key', None)
+    return generate_name(lat, long, model_key)
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))

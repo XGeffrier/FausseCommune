@@ -4,7 +4,7 @@ from typing import Optional
 
 from back.data_interfaces.public import load_france_shape
 from back.data_interfaces.storage import StorageClient
-from back.markov.markov_model import MarkovModel, LENGTH_MIN, LENGTH_MAX, DISTANCE_POWER, MixedModels
+from back.markov.markov_model import MarkovModel, LENGTH_MIN, LENGTH_MAX, DISTANCE_POWER
 from back.markov.math_utils import generate_grid_coords
 
 
@@ -76,7 +76,7 @@ def find_or_create_all_models(size_grid: int,
 
         # save models
         for i, model in enumerate(models):
-            model.save(os.path.join(sub_dir_path, f"model_{i}"))
+            model.save_on_local_filesystem(os.path.join(sub_dir_path, f"model_{i}"))
 
         StorageClient.zip_and_upload_to_storage(sub_dir_path, sub_dir_name, False)
     return models
@@ -111,17 +111,8 @@ if __name__ == '__main__':
         print(f"Generating models with grid size {grid_size}...")
         grid_start = time.time()
         models = find_or_create_all_models(grid_size, 3, 4, 40, 1.8, "models")
+        for i, model in enumerate(models):
+            print(f"saving model {i+1}/{len(models)} of coords f{model.center_coords}")
+            model.save_on_gcp_storage()
         print(f"Grid size {grid_size} done in {time.time() - grid_start:.2f}")
     models_trained = time.time()
-
-    end_model = MixedModels(models, COORDS_PARIS)
-    models_mixed = time.time()
-
-    names = end_model.generate_names(50)
-    names_generated = time.time()
-
-    print(*names, sep='\n')
-
-    print(models_trained - start, "to train all models,\n",
-          models_mixed - models_trained, "to mix all models,\n",
-          names_generated - models_mixed, "to generate names,\n")
