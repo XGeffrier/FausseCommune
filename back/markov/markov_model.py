@@ -1,6 +1,10 @@
+from __future__ import annotations
+
 import json
 import logging
 import os.path
+import shutil
+import uuid
 from pathlib import Path
 
 import numpy as np
@@ -8,6 +12,7 @@ import pandas as pd
 from unidecode import unidecode
 
 from back.data_interfaces.public import fetch_communes_data
+from back.data_interfaces.storage import StorageClient
 from back.markov.math_utils import coords_dist
 
 LENGTH_MIN = 4
@@ -16,6 +21,7 @@ DISTANCE_POWER = 1.8
 
 
 class MarkovModel:
+    models_by_key: dict[str, MarkovModel] = {}
     END_TOKEN = '\n'
     _communes_data = None
 
@@ -58,6 +64,12 @@ class MarkovModel:
             cls._communes_data["nom_commune_clean"] = cls._communes_data["nom_commune_complet"].apply(
                 lambda s: MarkovModel._clean_input_name(s))
         return cls._communes_data
+
+    @classmethod
+    def from_model_key(cls, model_key: str) -> "MarkovModel":
+        if model_key not in cls.models_by_key:
+            cls.models_by_key[model_key] = cls.load_from_gcp_storage(model_key)
+        return cls.models_by_key[model_key]
 
     def train(self) -> None:
         """
@@ -129,10 +141,8 @@ class MarkovModel:
 
         return names
 
-    def save(self, dir_path: str):
-        matrix_values = np.array(list(self._model_matrix.values()))
-        init_coeffs = np.array(self._all_init_coeffs)
-        other_data = {
+    def get_parameters(self) -> dict:
+        return {
             "coords": self.center_coords,
             "order": self.markov_order,
             "length_min": self.length_min,
@@ -143,28 +153,77 @@ class MarkovModel:
             "all_tokens": self._all_tokens,
             "matrix_nuples": list(self._model_matrix.keys())
         }
-        Path(dir_path).mkdir(parents=True, exist_ok=True)
 
+    def get_light_parameters(self) -> dict:
+        return {
+            "coords": self.center_coords,
+            "order": self.markov_order,
+            "length_min": self.length_min,
+            "length_max": self.length_max,
+            "distance_power": self.distance_power,
+            "trained": self.trained
+        }
+
+    def save_on_local_filesystem(self, dir_path: str):
+        matrix_values = np.array(list(self._model_matrix.values()))
+        init_coeffs = np.array(self._all_init_coeffs)
+        parameters = self.get_parameters()
+        Path(dir_path).mkdir(parents=True, exist_ok=True)
         numpy_file_path = os.path.join(dir_path, "coeffs.npy")
-        data_file_path = os.path.join(dir_path, "data.json")
+        data_file_path = os.path.join(dir_path, "parameters.json")
         with open(numpy_file_path, 'wb') as f:
             np.save(f, matrix_values)
             np.save(f, init_coeffs)
         with open(data_file_path, "w") as f:
-            json.dump(other_data, f)
+            json.dump(parameters, f)
+
+    def save_on_gcp_storage(self, local_dir_path: str | None = None):
+        """
+        If it has already been saved on local filesystem, it will be uploaded directly.
+        If it has already been saved on GCP storage, Nothing will happen
+        """
+        # get the models json if it exists
+        all_models_dict = StorageClient.download_json_file_as_dict(StorageClient.models_json_path)
+        if all_models_dict is None:
+            all_models_dict = {}
+        for model_key, model_parameters in all_models_dict.items():
+            if model_parameters == self.get_light_parameters():
+                # model was already saved
+                return
+
+        # upload the model
+        model_key = uuid.uuid4().hex[:10]
+        already_local_saved = local_dir_path is not None and os.path.isdir(local_dir_path)
+        if not already_local_saved:
+            # save on local filesystem first
+            local_dir_path = os.path.join(os.getcwd(), f"model_{model_key}")
+            self.save_on_local_filesystem(local_dir_path)
+        StorageClient.zip_and_upload_to_storage(local_dir_path, f"models/{model_key}", make_public=False)
+        if not already_local_saved:
+            shutil.rmtree(local_dir_path)
+
+        # add the just uploaded model to the models_json
+        all_models_dict[model_key] = self.get_light_parameters()
+        StorageClient.upload_dict_to_json_file(StorageClient.models_json_path, all_models_dict)
 
     @classmethod
     def load_from_local_filesystem(self, dir_path) -> "MarkovModel":
         numpy_file_path = os.path.join(dir_path, "coeffs.npy")
-        data_file_path = os.path.join(dir_path, "data.json")
-        if not (os.path.isfile(numpy_file_path) and os.path.isfile(data_file_path)):
+        data_file_path_legacy_name = os.path.join(dir_path, "data.json")
+        data_file_path = os.path.join(dir_path, "parameters.json")
+        if not (os.path.isfile(numpy_file_path) and (os.path.isfile(data_file_path)
+                                                     or os.path.isfile(data_file_path_legacy_name))):
             raise ValueError("Unable to find saved data.")
 
         with open(numpy_file_path, "rb") as f:
             matrix_values = np.load(f)
             init_coeffs = np.load(f)
-        with open(data_file_path) as f:
-            data = json.load(f)
+        if os.path.isfile(data_file_path_legacy_name):
+            with open(data_file_path_legacy_name) as f:
+                data = json.load(f)
+        else:
+            with open(data_file_path) as f:
+                data = json.load(f)
         coords = data["coords"]
         order = data["order"]
         length_min = data["length_min"]
@@ -183,6 +242,13 @@ class MarkovModel:
         model._all_tokens = all_tokens
 
         return model
+
+    def load_from_gcp_storage(self, model_key: str) -> "MarkovModel":
+        model_dir = StorageClient.download_and_unzip(f"models/{model_key}", f"model_{model_key}")
+        if model_dir is not None:
+            return MarkovModel.load_from_local_filesystem(model_dir)
+        else:
+            raise ValueError("Unable to find saved data on GCP Storage.")
 
     @classmethod
     def _is_generated_name_valid(cls, name: str) -> bool:
@@ -257,37 +323,3 @@ class MarkovModel:
         name = '-'.join(words)
 
         return name
-
-
-class MixedModels(MarkovModel):
-
-    def __init__(self,
-                 models: list["MarkovModel"],
-                 coords: tuple[float, float],
-                 nb_considered: int = 4):
-        """
-        Mix models, pre-trained from distinct coords, to create an already trained model.
-        Ponderate each model depending on its distance to desired coords
-        """
-        super().__init__(coords, models[0].markov_order, models[0].length_min, models[0].length_max,
-                         models[0].distance_power)
-
-        # note: this could be optimized
-        dists = [coords_dist(model.center_coords, coords) for model in models]
-        close_models = sorted(models, key=lambda m: dists[models.index(m)])[:nb_considered]
-        dists = sorted(dists)[:nb_considered]
-        m = close_models[0]
-
-        self._all_init_nuples = m._all_init_nuples
-        self._all_tokens = m._all_tokens
-        self._all_init_coeffs = np.array([sum(model._all_init_coeffs[i] / (dists[m] ** self.distance_power)
-                                              for m, model in enumerate(close_models))
-                                          for i in range(len(m._all_init_coeffs))])
-        self._all_init_coeffs /= self._all_init_coeffs.sum()
-        self._model_matrix = {key: np.array([sum(model._model_matrix[key][i] / (dists[m] ** self.distance_power)
-                                                 for m, model in enumerate(close_models))
-                                             for i in range(len(m._model_matrix[key]))])
-                              for key in m._model_matrix.keys()}
-        self._model_matrix = {key: value / value.sum()
-                              for key, value in self._model_matrix.items()}
-        self.trained = True

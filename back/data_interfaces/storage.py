@@ -1,6 +1,5 @@
+import json
 import os.path
-import tarfile
-import time
 import uuid
 import zipfile
 
@@ -10,6 +9,7 @@ from google.cloud import storage
 class StorageClient:
     project_name = "fausse-commune"
     default_bucket_name = "fausses_communes_bucket"
+    models_json_path = "all_models.json"
 
     _client = None
     _default_bucket = None
@@ -36,6 +36,12 @@ class StorageClient:
         blob.upload_from_filename(local_path, content_type=content_type, timeout=300)
         if make_public:
             blob.make_public()
+
+    @classmethod
+    def upload_dict_to_json_file(cls, gs_path: str, data: dict):
+        bucket = cls.get_default_bucket()
+        blob = bucket.blob(cls.clean_path(gs_path))
+        blob.upload_from_string(json.dumps(data), content_type="application/json", timeout=300)
 
     @classmethod
     def zip_and_upload_to_storage(cls,
@@ -66,6 +72,15 @@ class StorageClient:
         bucket = cls.get_default_bucket()
         blob = bucket.blob(cls.clean_path(gs_path))
         return blob.download_as_text()
+
+    @classmethod
+    def download_json_file_as_dict(cls, gs_path: str) -> dict | None:
+        """Downloads a blob into memory."""
+        bucket = cls.get_default_bucket()
+        blob = bucket.blob(cls.clean_path(gs_path))
+        if not blob.exists():
+            return None
+        return json.loads(blob.download_as_text())
 
     @classmethod
     def download_and_unzip(cls, gs_path: str, output_dir: str) -> str | None:
