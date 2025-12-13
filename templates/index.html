@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jeu de Géolocalisation</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .game-wrapper {
+            display: flex;
+            flex-direction: row;
+            min-height: 600px;
+        }
+
+        .map-container {
+            flex: 1;
+            position: relative;
+            min-height: 600px;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+            min-height: 600px;
+        }
+
+        .hints-container {
+            width: 350px;
+            padding: 30px;
+            background: #f8f9fa;
+            border-left: 3px solid #667eea;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .hints-header {
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .round-info {
+            background: #667eea;
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+
+        .hints-list {
+            list-style: none;
+            flex: 1;
+        }
+
+        .hint-item {
+            background: white;
+            padding: 15px;
+            margin-bottom: 12px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            border-left: 4px solid #667eea;
+            font-size: 16px;
+            transition: transform 0.2s;
+        }
+
+        .hint-item:hover {
+            transform: translateX(5px);
+        }
+
+        .victory-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.5s;
+        }
+
+        .victory-overlay.show {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .victory-message {
+            background: white;
+            padding: 50px;
+            border-radius: 20px;
+            text-align: center;
+            font-size: 36px;
+            font-weight: bold;
+            color: #667eea;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        }
+
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+        }
+
+        .modal.show {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            text-align: center;
+            max-width: 400px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        }
+
+        .modal-title {
+            font-size: 28px;
+            font-weight: bold;
+            color: #d9534f;
+            margin-bottom: 20px;
+        }
+
+        .modal-button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 18px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.3s;
+            margin-top: 20px;
+        }
+
+        .modal-button:hover {
+            background: #5568d3;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            font-size: 20px;
+            color: #667eea;
+        }
+
+        @media (max-width: 768px) {
+            .game-wrapper {
+                flex-direction: column;
+            }
+
+            .hints-container {
+                width: 100%;
+                border-left: none;
+                border-top: 3px solid #667eea;
+            }
+
+            .map-container {
+                min-height: 400px;
+            }
+
+            #map {
+                min-height: 400px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="game-wrapper">
+            <div class="map-container">
+                <div id="map"></div>
+            </div>
+            <div class="hints-container">
+                <div class="hints-header">🎯 Indices</div>
+                <div class="round-info">Round <span id="round-number">1</span></div>
+                <ul class="hints-list" id="hints-list">
+                    <li class="loading">Chargement...</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="victory-overlay" id="victory-overlay">
+        <div class="victory-message" id="victory-message">
+            Round 1 gagné ! 🎉
+        </div>
+    </div>
+
+    <div class="modal" id="game-over-modal">
+        <div class="modal-content">
+            <div class="modal-title">😢 Perdu au round <span id="final-round">1</span></div>
+            <button class="modal-button" onclick="restartGame()">Rejouer</button>
+        </div>
+    </div>
+
+    <script>
+        let map;
+        let currentRound = 1;
+        let gameSeed;
+        let markers = [];
+
+        // Initialiser la carte
+        function initMap() {
+            map = L.map('map').setView([46.603354, 1.888334], 6);
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors',
+                maxZoom: 19
+            }).addTo(map);
+
+            // Ajuster la taille de la carte après l'initialisation
+            setTimeout(() => {
+                map.invalidateSize();
+            }, 100);
+        }
+
+        // Générer une seed basée sur l'heure
+        function generateSeed() {
+            return Math.floor(Date.now() / 1000);
+        }
+
+        // Charger un round
+        async function loadRound(roundIx) {
+            try {
+                const response = await fetch('/api/get_round', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        game_seed: gameSeed,
+                        round_ix: roundIx
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error('Erreur lors du chargement du round');
+                }
+
+                const data = await response.json();
+                displayRound(data, roundIx);
+            } catch (error) {
+                console.error('Erreur:', error);
+                document.getElementById('hints-list').innerHTML =
+                    '<li class="hint-item">Erreur de chargement</li>';
+            }
+        }
+
+        // Afficher un round
+        function displayRound(data, roundIx) {
+            // Nettoyer les anciens marqueurs
+            markers.forEach(marker => map.removeLayer(marker));
+            markers = [];
+
+            // Mettre à jour le numéro de round
+            document.getElementById('round-number').textContent = roundIx;
+            currentRound = roundIx;
+
+            // Afficher les indices
+            const hintsList = document.getElementById('hints-list');
+            hintsList.innerHTML = '';
+            data.fake_names.forEach(hint => {
+                const li = document.createElement('li');
+                li.className = 'hint-item';
+                li.textContent = hint;
+                hintsList.appendChild(li);
+            });
+
+            // Ajouter le marqueur pour les bonnes coordonnées
+            const goodMarker = L.circleMarker([data.good_coords[1], data.good_coords[0]], {
+                color: '#28a745',
+                fillColor: '#28a745',
+                fillOpacity: 0.8,
+                radius: 12
+            }).addTo(map);
+
+            goodMarker.on('click', () => {
+                handleCorrectAnswer();
+            });
+
+            markers.push(goodMarker);
+
+            // Ajouter les marqueurs pour les mauvaises coordonnées
+            data.bad_coords.forEach(coords => {
+                const badMarker = L.circleMarker([coords[1], coords[0]], {
+                    color: '#dc3545',
+                    fillColor: '#dc3545',
+                    fillOpacity: 0.8,
+                    radius: 12
+                }).addTo(map);
+
+                badMarker.on('click', () => {
+                    handleWrongAnswer();
+                });
+
+                markers.push(badMarker);
+            });
+
+            // Ajuster la vue pour inclure tous les marqueurs
+            const allCoords = [data.good_coords, ...data.bad_coords];
+            const bounds = L.latLngBounds(allCoords.map(c => [c[1], c[0]]));
+            map.fitBounds(bounds, { padding: [50, 50] });
+        }
+
+        // Gérer la bonne réponse
+        function handleCorrectAnswer() {
+            // Afficher le message de victoire
+            const overlay = document.getElementById('victory-overlay');
+            const message = document.getElementById('victory-message');
+            message.textContent = `Round ${currentRound} gagné ! 🎉`;
+            overlay.classList.add('show');
+
+            // Lancer les confettis
+            confetti({
+                particleCount: 100,
+                spread: 70,
+                origin: { y: 0.6 }
+            });
+
+            // Passer au round suivant après 2 secondes
+            setTimeout(() => {
+                overlay.classList.remove('show');
+                setTimeout(() => {
+                    loadRound(currentRound + 1);
+                }, 500);
+            }, 2000);
+        }
+
+        // Gérer la mauvaise réponse
+        function handleWrongAnswer() {
+            document.getElementById('final-round').textContent = currentRound;
+            document.getElementById('game-over-modal').classList.add('show');
+        }
+
+        // Redémarrer le jeu
+        function restartGame() {
+            document.getElementById('game-over-modal').classList.remove('show');
+            gameSeed = generateSeed();
+            currentRound = 1;
+            loadRound(1);
+        }
+
+        // Initialiser le jeu au chargement de la page
+        window.onload = () => {
+            initMap();
+            gameSeed = generateSeed();
+            loadRound(1);
+        };
+
+        // Redimensionner la carte quand la fenêtre change de taille
+        window.addEventListener('resize', () => {
+            if (map) {
+                map.invalidateSize();
+            }
+        });
+    </script>
+</body>
+</html>

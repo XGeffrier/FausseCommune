@@ -4,17 +4,15 @@ Ce fichier a pour vocation d'être, en attendant mieux, l'entry point de CF pour
 
 import os
 
-from flask import Flask, request
+from flask import Flask, render_template, request
 
 app = Flask(__name__)
 
 
-@app.route("/")
-def hello_world():
-    """Example Hello World route."""
-    name = os.environ.get("NAME", "World")
-    return f"Hello {name}!"
-
+@app.route('/')
+def index():
+    """Route pour servir la page principale du jeu"""
+    return render_template('index.html')
 
 @app.route("/api/get_available_models", methods=['GET'])
 def get_available_models():
