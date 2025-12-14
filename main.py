@@ -1,7 +1,8 @@
 """
 Ce fichier a pour vocation d'être, en attendant mieux, l'entry point de CF pour faire tourner le "back" (la partie logique)
 """
-
+import json
+import logging
 import os
 
 from flask import Flask, render_template, request
@@ -41,7 +42,10 @@ def get_round():
     game_seed = data.get('game_seed', None)
     round_ix = data.get('round_ix', None)
     good_coords, fake_names, bad_coords = play_round(round_ix, game_seed)
-    return {"good_coords": good_coords, "fake_names": fake_names, "bad_coords": bad_coords}
+    output_payload = {"good_coords": good_coords, "fake_names": fake_names, "bad_coords": bad_coords}
+    logging.info(f"Seed {game_seed}, round {round_ix}: "
+                 f"{json.dumps(output_payload, ensure_ascii=False, sort_keys=True)}")
+    return output_payload
 
 
 if __name__ == "__main__":
