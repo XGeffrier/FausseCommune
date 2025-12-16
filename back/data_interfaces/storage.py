@@ -9,7 +9,7 @@ from google.cloud import storage
 class StorageClient:
     project_name = "fausse-commune"
     default_bucket_name = "fausses_communes_bucket"
-    models_json_path = "all_models.json"
+    models_json_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "all_models.json")
 
     _client = None
     _default_bucket = None
@@ -122,10 +122,12 @@ class StorageClient:
     @classmethod
     def get_available_models(cls) -> dict:
         if cls._available_models is None:
-            cls._available_models = cls.download_json_file_as_dict(cls.models_json_path) or {}
+            with open(cls.models_json_path, "r") as f:
+                cls._available_models = json.load(f)
         return cls._available_models
 
     @classmethod
     def set_available_models(cls, all_models_dict: dict):
         cls._available_models = all_models_dict
-        cls.upload_dict_to_json_file(cls.models_json_path, all_models_dict)
+        with open(cls.models_json_path, "w") as f:
+            json.dump(all_models_dict, f, sort_keys=True, ensure_ascii=False)
