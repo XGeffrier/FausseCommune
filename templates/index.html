@@ -229,7 +229,7 @@
 
     <div class="modal" id="game-over-modal">
         <div class="modal-content">
-            <div class="modal-title">😢 Perdu au round <span id="final-round">1</span></div>
+            <div class="modal-title">😢 Perdu... Nombre de rounds remportés : <span id="final-round">0</span></div>
             <button class="modal-button" onclick="restartGame()">Rejouer</button>
         </div>
     </div>
@@ -294,7 +294,7 @@
             markers = [];
 
             // Mettre à jour le numéro de round
-            document.getElementById('round-number').textContent = roundIx;
+            document.getElementById('round-number').textContent = roundIx + 1;
             currentRound = roundIx;
 
             // Afficher les indices
@@ -348,7 +348,7 @@
             // Afficher le message de victoire
             const overlay = document.getElementById('victory-overlay');
             const message = document.getElementById('victory-message');
-            message.textContent = `Round ${currentRound} gagné ! 🎉`;
+            message.textContent = `Round ${currentRound + 1} gagné ! 🎉`;
             overlay.classList.add('show');
 
             // Lancer les confettis
