@@ -257,7 +257,7 @@
 
         // Générer une seed basée sur l'heure
         function generateSeed() {
-            return Math.floor(Date.now() / 1000);
+            return Math.floor(Date.now() / 1000).toString();
         }
 
         // Charger un round
@@ -308,9 +308,9 @@
             });
 
             // Ajouter le marqueur pour les bonnes coordonnées
-            const goodMarker = L.circleMarker([data.good_coords[1], data.good_coords[0]], {
-                color: '#28a745',
-                fillColor: '#28a745',
+            const goodMarker = L.circleMarker([data.good_coords[0], data.good_coords[1]], {
+                color: '#dc3545',
+                fillColor: '#dc3545',
                 fillOpacity: 0.8,
                 radius: 12
             }).addTo(map);
@@ -323,7 +323,7 @@
 
             // Ajouter les marqueurs pour les mauvaises coordonnées
             data.bad_coords.forEach(coords => {
-                const badMarker = L.circleMarker([coords[1], coords[0]], {
+                const badMarker = L.circleMarker([coords[0], coords[1]], {
                     color: '#dc3545',
                     fillColor: '#dc3545',
                     fillOpacity: 0.8,
@@ -339,7 +339,7 @@
 
             // Ajuster la vue pour inclure tous les marqueurs
             const allCoords = [data.good_coords, ...data.bad_coords];
-            const bounds = L.latLngBounds(allCoords.map(c => [c[1], c[0]]));
+            const bounds = L.latLngBounds(allCoords.map(c => [c[0], c[1]]));
             map.fitBounds(bounds, { padding: [50, 50] });
         }
 
