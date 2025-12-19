@@ -525,6 +525,25 @@
     /* ========================================
        CHARGEMENT D'UN ROUND
        ======================================== */
+    /**
+     * Effectue un appel de préchauffage pour éviter le cold start
+     * Lance la requête dès que possible sans attendre le résultat
+     */
+    function warmupAPI() {
+        // Appel de préchauffage avec une seed temporaire
+        fetch('/api/get_round', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                game_seed: 'warmup',
+                round_ix: 0
+            })
+        }).catch(() => {
+            // On ignore les erreurs du warmup, ce n'est pas grave
+        });
+    }
 
     /**
      * Charge les données d'un round depuis l'API Flask
@@ -590,6 +609,7 @@
             li.textContent = hint;
             hintsList.appendChild(li);
         });
+        map.invalidateSize()
 
         /* ===== CRÉATION DES MARQUEURS ===== */
 
@@ -713,6 +733,7 @@
      * Fonction exécutée quand la page est complètement chargée
      */
     window.onload = () => {
+        warmupAPI(); // Lance l'appel de préchauffage immédiatement
         initMap(); // Initialise la carte
         loadBestScore(); // Charge le meilleur score
         gameSeed = generateSeed(); // Génère une seed
