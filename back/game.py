@@ -41,7 +41,7 @@ def get_alternative_coords(coords: tuple[float, float],
 
 def play_round(round_ix: int,
                game_seed: str,
-               nb_names: int = 6) -> tuple[tuple[float, float], list[str], list[tuple[float, float]]]:
+               nb_names: int = 7) -> tuple[tuple[float, float], list[str], list[tuple[float, float]]]:
     for i in range(100):
         # pick a random model
         names_by_model_key = StorageClient.get_pre_generated_names_by_model()
