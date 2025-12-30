@@ -3,9 +3,10 @@ import logging
 import os
 from typing import TYPE_CHECKING
 
+import pandas as pd
+
 if TYPE_CHECKING:
     import shapely.geometry
-    import pandas as pd
 
 
 class PublicData:
@@ -41,7 +42,6 @@ class PublicData:
     @classmethod
     def fetch_communes_data(cls) -> "pd.DataFrame":
         if cls._communes_data is None:
-            import pandas as pd
             df = pd.read_csv(cls.COMMUNES_URL)
             df = df[["nom_commune_complet", "latitude", "longitude"]]
             cls._communes_data = df.dropna()
