@@ -328,9 +328,11 @@ class MarkovModel:
                  else word
                  for i, word in enumerate(words)]
 
-        # les -> lès
-        if "les" in words:
-            words = words[0:1] + list(map(lambda x: x.replace('les', 'lès'), words[1:]))
+        # Le Cleac h -> Le Cleac'h
+        to_merge = [ix - 1 for ix, word in enumerate(words) if word == "h" and ix != 0]
+        for ix in to_merge[::-1]:
+            words[ix] = "'".join((words[ix], words[ix + 1]))
+            del words[ix + 1]
 
         # Saint Martin l Abbaye -> Saint Martin l'Abbaye
         to_merge = [ix for ix, word in enumerate(words) if len(word) == 1 and ix < len(words) - 1]
@@ -342,4 +344,3 @@ class MarkovModel:
         name = '-'.join(words)
 
         return name
-
