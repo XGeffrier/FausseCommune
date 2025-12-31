@@ -570,7 +570,9 @@
     function initMap() {
         // Crée la carte dans l'élément avec l'id "map"
         // setView([latitude, longitude], niveau_de_zoom)
-        map = L.map('map').setView([46.603354, 1.888334], 6);
+        map = L.map('map', {
+            maxZoom: 10,
+        }).setView([46.603354, 1.888334], 6);
 
         // Ajoute les tuiles (images de la carte) depuis OpenStreetMap
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
