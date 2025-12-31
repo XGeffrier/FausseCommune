@@ -121,7 +121,7 @@
             height: 100%;
         }
 
-        /* ===== CONTENEUR DES INDICES ET SCORE ===== */
+        /* ===== CONTENEUR DES INDICES ===== */
         .hints-container {
             width: 350px;
             background: #f8f9fa;
@@ -131,7 +131,7 @@
             overflow: hidden; /* Évite les débordements */
         }
 
-        /* Section des indices (partie haute) */
+        /* Section des indices */
         .hints-section {
             flex: 1; /* Prend l'espace disponible */
             padding: 30px;
@@ -171,12 +171,21 @@
             color: #457b9d;
         }
 
-        /* ===== SECTION SCORE (PARTIE BASSE) ===== */
+        /* ===== SECTION SCORE ===== */
         .score-section {
             padding: 20px 30px;
             background: white;
-            border-top: 2px solid #e0e0e0;
             flex-shrink: 0; /* Ne pas rétrécir */
+            border-top: 2px solid #e0e0e0;
+        }
+
+        /* Par défaut, affiche desktop et cache mobile */
+        .score-mobile {
+            display: none;
+        }
+
+        .score-desktop {
+            display: block;
         }
 
         .score-item {
@@ -351,11 +360,26 @@
                 flex-direction: column;
             }
 
+            /* Affiche score mobile, cache score desktop */
+            .score-mobile {
+                display: block;
+                border-bottom: 2px solid #e0e0e0;
+                border-top: none;
+            }
+
+            .score-desktop {
+                display: none;
+            }
+
             .hints-container {
                 width: 100%;
                 border-left: none;
                 border-top: 3px solid #457b9d;
-                max-height: 50vh; /* Limite la hauteur sur mobile */
+                max-height: 40vh;
+            }
+
+            .hints-section {
+                padding: 20px;
             }
 
             .map-container {
@@ -364,21 +388,12 @@
                 flex: 0 0 auto; /* Ne pas étirer */
             }
 
-            .hints-section {
-                padding: 20px;
-            }
-
             .score-section {
                 padding: 15px 20px;
             }
 
-            /* Cache les score-items desktop et affiche la version mobile */
-            .score-item {
-                display: none;
-            }
-
             .mobile-score-line {
-                display: flex !important;
+                display: flex;
                 justify-content: center;
                 align-items: center;
             }
@@ -398,6 +413,13 @@
 
     <!-- ===== JEU (CARTE + INDICES) ===== -->
     <div class="game-wrapper">
+        <!-- Section score MOBILE uniquement (au-dessus de la carte) -->
+        <div class="score-section score-mobile">
+            <div class="mobile-score-line">
+                <span class="score-label" id="mobile-score-display"></span>
+            </div>
+        </div>
+
         <!-- CARTE -->
         <div class="map-container">
             <div id="map"></div>
@@ -405,30 +427,26 @@
 
         <!-- INDICES ET SCORE -->
         <div class="hints-container">
-            <!-- Section indices (partie haute) -->
+            <!-- Section indices -->
             <div class="hints-section">
                 <ul class="hints-list" id="hints-list">
                     <li class="loading">Chargement...</li>
                 </ul>
             </div>
 
-            <!-- Section score (partie basse) -->
-            <div class="score-section">
+            <!-- Section score DESKTOP uniquement (sous les indices) -->
+            <div class="score-section score-desktop">
                 <div class="score-item">
                     <span class="score-label">Vies :</span>
-                    <span class="score-value" id="lives-display">❤️❤️</span>
+                    <span class="score-value" id="lives-display-desktop">❤️❤️</span>
                 </div>
                 <div class="score-item">
                     <span class="score-label">Score actuel :</span>
-                    <span class="score-value" id="current-score">0</span>
+                    <span class="score-value" id="current-score-desktop">0</span>
                 </div>
                 <div class="score-item">
                     <span class="score-label">Meilleur score :</span>
-                    <span class="score-value best-score-value" id="best-score">0</span>
-                </div>
-                <!-- Ligne mobile uniquement -->
-                <div class="mobile-score-line" style="display: none;">
-                    <span class="score-label" id="mobile-score-display"></span>
+                    <span class="score-value best-score-value" id="best-score-desktop">0</span>
                 </div>
             </div>
         </div>
@@ -515,7 +533,7 @@
         const saved = localStorage.getItem('fausseCommune_bestScore');
         if (saved !== null) {
             bestScore = parseInt(saved, 10);
-            document.getElementById('best-score').textContent = bestScore;
+            document.getElementById('best-score-desktop').textContent = bestScore;
         }
         updateMobileScore();
     }
@@ -527,7 +545,7 @@
         if (score > bestScore) {
             bestScore = score;
             localStorage.setItem('fausseCommune_bestScore', bestScore.toString());
-            document.getElementById('best-score').textContent = bestScore;
+            document.getElementById('best-score-desktop').textContent = bestScore;
             updateMobileScore();
         }
     }
@@ -536,7 +554,7 @@
      * Met à jour l'affichage du score actuel
      */
     function updateCurrentScore(score) {
-        document.getElementById('current-score').textContent = score;
+        document.getElementById('current-score-desktop').textContent = score;
         updateMobileScore();
     }
 
@@ -544,8 +562,8 @@
      * Met à jour l'affichage des vies
      */
     function updateLivesDisplay() {
-        const livesDisplay = document.getElementById('lives-display');
-        livesDisplay.textContent = '❤️'.repeat(lives);
+        const livesDisplayDesktop = document.getElementById('lives-display-desktop');
+        livesDisplayDesktop.textContent = '❤️'.repeat(lives);
         updateMobileScore();
     }
 
@@ -553,8 +571,8 @@
      * Met à jour l'affichage mobile (vies + score)
      */
     function updateMobileScore() {
-        const currentScore = document.getElementById('current-score').textContent;
-        const bestScore = document.getElementById('best-score').textContent;
+        const currentScore = document.getElementById('current-score-desktop').textContent;
+        const bestScore = document.getElementById('best-score-desktop').textContent;
         const livesText = '❤️'.repeat(lives);
         const mobileDisplay = document.getElementById('mobile-score-display');
         mobileDisplay.innerHTML = `Vies : ${livesText} <span style="margin-left: 20px;">Score : ${currentScore} (${bestScore})</span>`;
