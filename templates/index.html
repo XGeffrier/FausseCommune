@@ -855,8 +855,9 @@
      */
     function shareResult() {
         const score = roundHistory.filter(r => r).length;
+        const nbRoundsPlayed = currentRound + 1;
         const historyString = roundHistory.map(r => r ? '🟢' : '🔴').join('');
-        const shareText = `J'ai fait ${score} points sur faussecommune.fr ! ${historyString}`;
+        const shareText = `FAUSSE COMMUNE\nJ'ai localisé correctement ${score} régions sur ${nbRoundsPlayed} !\n${historyString}\n\nJouez sur faussecommune.fr`;
 
         navigator.clipboard.writeText(shareText).then(() => {
             // Affiche la notification
