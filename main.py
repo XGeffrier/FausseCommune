@@ -7,6 +7,14 @@ import os
 
 from flask import Flask, render_template, request
 
+if os.getenv("GCP_PROJECT"):
+    import google.cloud.logging
+
+    client = google.cloud.logging.Client()
+    client.get_default_handler()
+    client.setup_logging()
+else:
+    logging.getLogger().setLevel(logging.DEBUG)
 app = Flask(__name__)
 
 
@@ -28,6 +36,7 @@ def get_round():
     data = request.get_json()
     game_seed = data.get('game_seed', None)
     round_ix = data.get('round_ix', None)
+    logging.info(f"Get round request: seed={game_seed}, round={round_ix}, ip={request.remote_addr}")
     good_coords, fake_names, bad_coords = play_round(round_ix, game_seed)
     output_payload = {"good_coords": good_coords, "fake_names": fake_names, "bad_coords": bad_coords}
     logging.info(f"Seed {game_seed}, round {round_ix}: "
