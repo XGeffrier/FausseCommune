@@ -319,11 +319,12 @@
         /* ===== RESPONSIVE MOBILE ===== */
         @media (max-width: 768px) {
             body {
-                padding: 10px;
+                padding: 0;
             }
 
             .container {
-                max-height: calc(100vh - 20px);
+                max-height: 100vh;
+                border-radius: 0;
             }
 
             .header {
@@ -370,6 +371,17 @@
             .score-section {
                 padding: 15px 20px;
             }
+
+            /* Cache les score-items desktop et affiche la version mobile */
+            .score-item {
+                display: none;
+            }
+
+            .mobile-score-line {
+                display: flex !important;
+                justify-content: center;
+                align-items: center;
+            }
         }
     </style>
 </head>
@@ -413,6 +425,10 @@
                 <div class="score-item">
                     <span class="score-label">Meilleur score :</span>
                     <span class="score-value best-score-value" id="best-score">0</span>
+                </div>
+                <!-- Ligne mobile uniquement -->
+                <div class="mobile-score-line" style="display: none;">
+                    <span class="score-label" id="mobile-score-display"></span>
                 </div>
             </div>
         </div>
@@ -498,6 +514,7 @@
             bestScore = parseInt(saved, 10);
             document.getElementById('best-score').textContent = bestScore;
         }
+        updateMobileScore();
     }
 
     /**
@@ -508,6 +525,7 @@
             bestScore = score;
             localStorage.setItem('fausseCommune_bestScore', bestScore.toString());
             document.getElementById('best-score').textContent = bestScore;
+            updateMobileScore();
         }
     }
 
@@ -516,6 +534,7 @@
      */
     function updateCurrentScore(score) {
         document.getElementById('current-score').textContent = score;
+        updateMobileScore();
     }
 
     /**
@@ -524,6 +543,18 @@
     function updateLivesDisplay() {
         const livesDisplay = document.getElementById('lives-display');
         livesDisplay.textContent = '❤️'.repeat(lives);
+        updateMobileScore();
+    }
+
+    /**
+     * Met à jour l'affichage mobile (vies + score)
+     */
+    function updateMobileScore() {
+        const currentScore = document.getElementById('current-score').textContent;
+        const bestScore = document.getElementById('best-score').textContent;
+        const livesText = '❤️'.repeat(lives);
+        const mobileDisplay = document.getElementById('mobile-score-display');
+        mobileDisplay.innerHTML = `Vies : ${livesText} <span style="margin-left: 20px;">Score : ${currentScore} (${bestScore})</span>`;
     }
 
     /* ========================================
