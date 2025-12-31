@@ -476,12 +476,15 @@
         <div class="modal-title help-title">📖 Comment jouer ?</div>
         <div class="modal-text">
             <p>Fausse Commune est un jeu gratuit qui va tester votre instinct géographique.</p>
-            <p>J'ai développé un algorithme à qui je peux donner un endroit précis de France pour qu'il génère des faux noms de communes en s'inspirant de ce qui est autour de lui.</p>
+            <p>Le jeu génère des faux noms de communes françaises, qui ressemblent à des noms réels de communes aux alentours d'un point donné.</p>
             <p>Votre but est de deviner de quel endroit il s'agit en lisant les noms générés. Cliquez sur un des points rouges de la carte pour donner votre réponse.</p>
             <p>Attention, au fil des manches ces points sont de plus en plus nombreux et resserrés.</p>
             <p>Bonne chance !</p>
         </div>
         <button class="modal-button" onclick="closeHelp()">Compris !</button>
+        <p style="margin-top: 20px; font-size: 12px; color: #999; text-align: center;">
+            Fausse Commune est un jeu développé par Xavier Geffrier (<a href="https://github.com/XGeffrier" target="_blank" style="color: #457b9d; text-decoration: none;">Github</a>)
+        </p>
     </div>
 </div>
 
@@ -913,6 +916,12 @@
         warmupAPI(); // Lance l'appel de préchauffage immédiatement
         initMap(); // Initialise la carte
         loadBestScore(); // Charge le meilleur score
+
+        // Affiche la modale d'aide si c'est la première visite
+        if (bestScore === 0) {
+            showHelp();
+        }
+
         gameSeed = generateSeed(); // Génère une seed
         loadRound(0); // Charge le premier round
     };
