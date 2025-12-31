@@ -343,8 +343,3 @@ class MarkovModel:
 
         return name
 
-
-if __name__ == '__main__':
-    generated_names = MarkovModel.generate_names_in_advance(30, None)
-    with open(r"C:\Users\xavie\PycharmProjects\OldFaussesCommunes\back\data_interfaces\all_models.json", "w") as f:
-        json.dump(generated_names, f, ensure_ascii=False)
