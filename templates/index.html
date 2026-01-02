@@ -515,17 +515,22 @@ style="height: 1em; vertical-align: -0.2em; margin-right: 0.3em;">Fausse Commune
     let currentRound = 0; // Round actuel (commence à 0)
     let gameSeed; // Seed de la partie actuelle
     let markers = []; // Tableau des marqueurs sur la carte
+    let markersById = {};
     let bestScore = 0; // Meilleur score du joueur
-    let goodMarkerRef = null; // Référence au bon marqueur
-    let gameBlocked = false; // Empêche les interactions pendant la révélation
     let lives = 2; // Nombre de vies du joueur
     let roundHistory = []; // Historique des rounds (true = gagné, false = perdu)
+    let gameBlocked = false; // Empêche les interactions pendant la révélation
+    let currentToken = null;
+    let pendingToken = null;
+    let pendingRoundData = null;
+    let waitingForNextRound = false;
+    let isRequestInFlight = false;
 
+    const ROUND_ENDPOINT = '/api/round';
 
     /* ========================================
        GESTION DU MEILLEUR SCORE (LOCALSTORAGE)
        ======================================== */
-
     /**
      * Charge le meilleur score depuis le localStorage
      * Le localStorage permet de sauvegarder des données dans le navigateur
@@ -563,8 +568,7 @@ style="height: 1em; vertical-align: -0.2em; margin-right: 0.3em;">Fausse Commune
      * Met à jour l'affichage des vies
      */
     function updateLivesDisplay() {
-        const livesDisplayDesktop = document.getElementById('lives-display-desktop');
-        livesDisplayDesktop.textContent = '❤️'.repeat(lives);
+        document.getElementById('lives-display-desktop').textContent = '❤️'.repeat(lives);
         updateMobileScore();
     }
 
@@ -573,45 +577,37 @@ style="height: 1em; vertical-align: -0.2em; margin-right: 0.3em;">Fausse Commune
      */
     function updateMobileScore() {
         const currentScore = document.getElementById('current-score-desktop').textContent;
-        const bestScore = document.getElementById('best-score-desktop').textContent;
+        const bestScoreValue = document.getElementById('best-score-desktop').textContent;
         const livesText = '❤️'.repeat(lives);
         const mobileDisplay = document.getElementById('mobile-score-display');
-        mobileDisplay.innerHTML = `Vies : ${livesText} <span style="margin-left: 20px;">Score : ${currentScore} (${bestScore})</span>`;
+        mobileDisplay.innerHTML = `Vies : ${livesText} <span style="margin-left: 20px;">Score : ${currentScore} (${bestScoreValue})</span>`;
     }
 
     /* ========================================
        INITIALISATION DE LA CARTE
        ======================================== */
-
     /**
      * Initialise la carte Leaflet centrée sur la France
      */
     function initMap() {
         // Crée la carte dans l'élément avec l'id "map"
         // setView([latitude, longitude], niveau_de_zoom)
-        map = L.map('map', {
-            maxZoom: 10,
-        }).setView([46.603354, 1.888334], 6);
-
+        map = L.map('map', {maxZoom: 10}).setView([46.603354, 1.888334], 6);
         // Ajoute les tuiles (images de la carte) depuis OpenStreetMap
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '© OpenStreetMap contributors',
             maxZoom: 19
         }).addTo(map);
-
         // Force le recalcul des dimensions immédiatement et après un délai
         // Le premier appel gère le cas où le CSS est déjà chargé
         // Le second gère le cas où le navigateur a besoin de plus de temps
         map.invalidateSize();
-        setTimeout(() => {
-            map.invalidateSize();
-        }, 100);
+        setTimeout(() => map.invalidateSize(), 100);
     }
 
     /* ========================================
        GÉNÉRATION DE LA SEED
        ======================================== */
-
     /**
      * Génère une seed basée sur le timestamp actuel
      * Une nouvelle seed = une nouvelle partie
@@ -624,255 +620,192 @@ style="height: 1em; vertical-align: -0.2em; margin-right: 0.3em;">Fausse Commune
        CHARGEMENT D'UN ROUND
        ======================================== */
     /**
-     * Effectue un appel de préchauffage pour éviter le cold start
-     * Lance la requête dès que possible sans attendre le résultat
-     */
-    function warmupAPI() {
-        // Appel de préchauffage avec une seed temporaire
-        fetch('/api/get_round', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                game_seed: 'warmup',
-                round_ix: 0
-            })
-        }).catch(() => {
-            // On ignore les erreurs du warmup, ce n'est pas grave
-        });
-    }
-
-    /**
      * Charge les données d'un round depuis l'API Flask
-     * @param {number} roundIx - Index du round à charger (commence à 0)
+     * @param {string|null} guessId - Identifiant de la réponse précédente (null si nouvelle partie)
      */
-    async function loadRound(roundIx) {
-        try {
-            // Envoie une requête POST à l'API Flask
-            const response = await fetch('/api/get_round', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    game_seed: gameSeed,
-                    round_ix: roundIx
-                })
-            });
+    async function requestRound(guessId = null) {
+        const payload = {
+            token: currentToken,
+            guess_id: guessId
+        };
+        if (!currentToken) {
+            payload.game_seed = gameSeed;
+        }
 
-            // Vérifie que la requête a réussi
-            if (!response.ok) {
-                throw new Error('Erreur lors du chargement du round');
-            }
+        const response = await fetch(ROUND_ENDPOINT, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+        });
 
-            // Convertit la réponse JSON en objet JavaScript
-            const data = await response.json();
+        if (!response.ok) {
+            throw new Error('Erreur lors du chargement du round');
+        }
 
-            // Affiche le round sur la carte
-            displayRound(data, roundIx);
-        } catch (error) {
-            console.error('Erreur:', error);
-            document.getElementById('hints-list').innerHTML =
-                '<li class="hint-item">Erreur de chargement</li>';
+        const data = await response.json();
+        pendingToken = data.token;
+        pendingRoundData = data.round;
+        await handlePreviousResult(data.previous_result);
+        if (!waitingForNextRound) {
+            usePendingRound();
         }
     }
 
-    /* ========================================
-       AFFICHAGE D'UN ROUND
-       ======================================== */
+    async function handlePreviousResult(result) {
+        if (!result) {
+            return;
+        }
 
-    /**
-     * Affiche les données d'un round sur la carte et dans l'interface
-     * @param {Object} data - Données du round (good_coords, bad_coords, fake_names)
-     * @param {number} roundIx - Index du round
-     */
-    function displayRound(data, roundIx) {
-        // Nettoie tous les anciens marqueurs de la carte
-        markers.forEach(marker => map.removeLayer(marker));
-        markers = [];
-        goodMarkerRef = null;
-        gameBlocked = false; // Réinitialise le blocage
-
-
-        // Met à jour le round actuel
-        currentRound = roundIx;
-        // Met à jour le score (nombre de victoires)
+        revealAnswer(result);
+        roundHistory.push(result.won);
         const score = roundHistory.filter(r => r).length;
         updateCurrentScore(score);
 
-        /* ===== AFFICHAGE DES INDICES ===== */
-        const hintsList = document.getElementById('hints-list');
-        hintsList.innerHTML = ''; // Vide la liste
-
-        // Crée un élément <li> pour chaque indice
-        data.fake_names.forEach(hint => {
-            const li = document.createElement('li');
-            li.className = 'hint-item';
-            li.textContent = hint;
-            hintsList.appendChild(li);
-        });
-        map.invalidateSize()
-
-        /* ===== CRÉATION DES MARQUEURS ===== */
-
-        // Marqueur pour les BONNES coordonnées
-        // Note : Leaflet utilise [latitude, longitude]
-        const goodMarker = L.circleMarker([data.good_coords[0], data.good_coords[1]], {
-            color: '#dc3545',
-            fillColor: '#dc3545',
-            fillOpacity: 0.8,
-            radius: 12
-        }).addTo(map);
-
-        // Stocke la référence du bon marqueur
-        goodMarkerRef = goodMarker;
-
-        // Ajoute un événement au clic sur le bon marqueur
-        goodMarker.on('click', () => {
-            if (!gameBlocked) {
-                handleCorrectAnswer();
+        if (result.won) {
+            await showVictoryOverlay(result.round_ix);
+            waitingForNextRound = false;
+        } else {
+            lives--;
+            updateLivesDisplay();
+            if (lives > 0) {
+                waitingForNextRound = true;
+                document.getElementById('remaining-lives').textContent = lives;
+                document.getElementById('life-lost-modal').classList.add('show');
+            } else {
+                waitingForNextRound = true;
+                saveBestScore(score);
+                document.getElementById('final-round').textContent = score;
+                document.getElementById('history-display').textContent = roundHistory.map(r => r ? '🟢' : '🔴').join('');
+                document.getElementById('game-over-modal').classList.add('show');
             }
-        });
-
-        markers.push(goodMarker);
-
-        // Marqueurs pour les MAUVAISES coordonnées
-        data.bad_coords.forEach(coords => {
-            const badMarker = L.circleMarker([coords[0], coords[1]], {
-                color: '#dc3545',
-                fillColor: '#dc3545',
-                fillOpacity: 0.8,
-                radius: 12
-            }).addTo(map);
-
-            // Ajoute un événement au clic sur le mauvais marqueur
-            badMarker.on('click', () => {
-                if (!gameBlocked) {
-                    handleWrongAnswer();
-                }
-            });
-
-
-            markers.push(badMarker);
-        });
-
-        /* ===== AJUSTEMENT DE LA VUE ===== */
-        // Zoom automatique pour que tous les marqueurs soient visibles
-        const allCoords = [data.good_coords, ...data.bad_coords];
-        const bounds = L.latLngBounds(allCoords.map(c => [c[0], c[1]]));
-        map.fitBounds(bounds, {padding: [50, 50]});
+        }
     }
 
     /* ========================================
        GESTION DES RÉPONSES
        ======================================== */
-
     /**
      * Révèle la bonne réponse et ajuste la vue
      */
-    function revealAnswer() {
-        gameBlocked = true; // Bloque les interactions
-
-        // Colore le bon marqueur en vert
-        if (goodMarkerRef) {
-            goodMarkerRef.setStyle({
-                color: '#28a745',
-                fillColor: '#28a745',
-                fillOpacity: 0.8
-            });
-        }
-
-        // Zoom pour afficher tous les marqueurs
-        const allCoords = [];
-        markers.forEach(marker => {
-            const latLng = marker.getLatLng();
-            allCoords.push([latLng.lat, latLng.lng]);
-        });
-        const bounds = L.latLngBounds(allCoords);
-        map.fitBounds(bounds, {padding: [50, 50]});
-    }
-
-    /**
-     * Appelée quand le joueur clique sur la bonne réponse
-     */
-    function handleCorrectAnswer() {
-        // Enregistre la victoire
-        roundHistory.push(true);
-
-        // Met à jour le score immédiatement
-        const score = roundHistory.filter(r => r).length;
-        updateCurrentScore(score);
-
-        // Révèle la réponse immédiatement
-        revealAnswer();
-
-        // Affiche le message de victoire
-        const overlay = document.getElementById('victory-overlay');
-        const message = document.getElementById('victory-message');
-        message.textContent = `Round ${currentRound + 1} gagné ! 🎉`;
-        overlay.classList.add('show');
-
-        // Lance l'animation de confettis
-        confetti({
-            particleCount: 100,
-            spread: 70,
-            origin: {y: 0.6},
-            zIndex: 100000 // S'assure que les confettis sont au-dessus de tout
-        });
-
-        // Attend 2 secondes puis passe au round suivant
-        setTimeout(() => {
-            overlay.classList.remove('show');
-            setTimeout(() => {
-                loadRound(currentRound + 1);
-            }, 500);
-        }, 2000);
-    }
-
-    /**
-     * Appelée quand le joueur clique sur une mauvaise réponse
-     */
-    function handleWrongAnswer() {
-        // Enregistre la défaite
-        roundHistory.push(false);
-
-        // Révèle la réponse immédiatement
-        revealAnswer();
-
-        // Perd une vie
-        lives--;
-        updateLivesDisplay();
-
-        // Attend 1 seconde avant d'afficher la modale
-        setTimeout(() => {
-            if (lives > 0) {
-                // Il reste des vies : affiche la modale de vie perdue
-                document.getElementById('remaining-lives').textContent = lives;
-                document.getElementById('life-lost-modal').classList.add('show');
-            } else {
-                // Plus de vies : Game Over
-                const score = roundHistory.filter(r => r).length; // Compte les victoires
-                saveBestScore(score);
-
-                document.getElementById('final-round').textContent = score;
-
-                // Génère l'historique visuel
-                const historyString = roundHistory.map(r => r ? '🟢' : '🔴').join('');
-                document.getElementById('history-display').textContent = historyString;
-
-                document.getElementById('game-over-modal').classList.add('show');
+    function revealAnswer(result) {
+        gameBlocked = true;
+        Object.entries(markersById).forEach(([id, marker]) => {
+            if (id === result.correct_id) {
+                marker.setStyle({color: '#28a745', fillColor: '#28a745', fillOpacity: 0.8});
+            } else if (!result.won && id === result.guess_id) {
+                marker.setStyle({color: '#6c757d', fillColor: '#6c757d', fillOpacity: 0.8});
             }
-        }, 1000);
+        });
+        const allCoords = Object.values(markersById).map(marker => {
+            const latLng = marker.getLatLng();
+            return [latLng.lat, latLng.lng];
+        });
+        if (allCoords.length > 0) {
+            map.fitBounds(L.latLngBounds(allCoords), {padding: [50, 50]});
+        }
     }
 
+    function showVictoryOverlay(roundIx) {
+        return new Promise(resolve => {
+            const overlay = document.getElementById('victory-overlay');
+            const message = document.getElementById('victory-message');
+            message.textContent = `Round ${roundIx + 1} gagné ! 🎉`;
+            overlay.classList.add('show');
+            confetti({
+                particleCount: 100,
+                spread: 70,
+                origin: {y: 0.6},
+                zIndex: 100000
+            });
+            setTimeout(() => {
+                overlay.classList.remove('show');
+                setTimeout(resolve, 500);
+            }, 2000);
+        });
+    }
+
+    function usePendingRound() {
+        if (!pendingRoundData || waitingForNextRound) {
+            return;
+        }
+        currentToken = pendingToken;
+        pendingToken = null;
+        const nextRound = pendingRoundData;
+        pendingRoundData = null;
+        displayRound(nextRound);
+    }
+
+    /* ========================================
+       AFFICHAGE D'UN ROUND
+       ======================================== */
+    /**
+     * Affiche les données d'un round sur la carte et dans l'interface
+     * @param {Object} roundData - Données du round à afficher
+     */
+    function displayRound(roundData) {
+        markers.forEach(marker => map.removeLayer(marker));
+        markers = [];
+        markersById = {};
+        gameBlocked = false;
+
+        currentRound = roundData.round_ix;
+
+        const hintsList = document.getElementById('hints-list');
+        hintsList.innerHTML = '';
+        roundData.fake_names.forEach(hint => {
+            const li = document.createElement('li');
+            li.className = 'hint-item';
+            li.textContent = hint;
+            hintsList.appendChild(li);
+        });
+
+        roundData.options.forEach(option => {
+            const marker = L.circleMarker([option.coords[0], option.coords[1]], {
+                color: '#dc3545',
+                fillColor: '#dc3545',
+                fillOpacity: 0.8,
+                radius: 12
+            }).addTo(map);
+            marker.on('click', () => handleMarkerSelection(option.id));
+            markers.push(marker);
+            markersById[option.id] = marker;
+        });
+
+        const bounds = L.latLngBounds(roundData.options.map(opt => [opt.coords[0], opt.coords[1]]));
+        map.fitBounds(bounds, {padding: [50, 50]});
+        map.invalidateSize();
+    }
+
+    /**
+     * Appelée quand le joueur clique sur un marqueur (bon ou mauvais)
+     */
+    async function handleMarkerSelection(optionId) {
+        if (gameBlocked || isRequestInFlight) {
+            return;
+        }
+        gameBlocked = true;
+        isRequestInFlight = true;
+        try {
+            await requestRound(optionId);
+        } catch (error) {
+            console.error('Erreur:', error);
+            document.getElementById('hints-list').innerHTML = '<li class="hint-item">Erreur de chargement</li>';
+            gameBlocked = false;
+        } finally {
+            isRequestInFlight = false;
+        }
+    }
+
+    /* ========================================
+       CONTRÔLES DU JEU
+       ======================================== */
     /**
      * Continue après avoir perdu une vie
      */
     function continueAfterLifeLost() {
         document.getElementById('life-lost-modal').classList.remove('show');
-        // Passe au round suivant SANS incrémenter le score
-        loadRound(currentRound + 1);
+        waitingForNextRound = false;
+        usePendingRound();
     }
 
     /**
@@ -880,41 +813,38 @@ style="height: 1em; vertical-align: -0.2em; margin-right: 0.3em;">Fausse Commune
      */
     function shareResult() {
         const score = roundHistory.filter(r => r).length;
-        const nbRoundsPlayed = currentRound + 1;
+        const nbRoundsPlayed = roundHistory.length;
         const historyString = roundHistory.map(r => r ? '🟢' : '🔴').join('');
         const shareText = `FAUSSE COMMUNE\nJ'ai localisé correctement ${score} régions sur ${nbRoundsPlayed} !\n${historyString}\n\nJouez sur faussecommune.fr`;
 
         navigator.clipboard.writeText(shareText).then(() => {
-            // Affiche la notification
             const notification = document.getElementById('notification');
             notification.style.opacity = '1';
-
-            // Disparaît après 5 secondes
-            setTimeout(() => {
-                notification.style.opacity = '0';
-            }, 5000);
-        }).catch(err => {
-            console.error('Erreur lors de la copie:', err);
-        });
+            setTimeout(() => notification.style.opacity = '0', 5000);
+        }).catch(err => console.error('Erreur lors de la copie:', err));
     }
-
-
-    /* ========================================
-       CONTRÔLES DU JEU
-       ======================================== */
 
     /**
      * Redémarre une nouvelle partie
      */
     function restartGame() {
         document.getElementById('game-over-modal').classList.remove('show');
-        gameSeed = generateSeed(); // Nouvelle seed = nouvelle partie
-        currentRound = 0;
-        lives = 2;
+        waitingForNextRound = false;
         roundHistory = [];
+        lives = 2;
         updateCurrentScore(0);
         updateLivesDisplay();
-        loadRound(0);
+        currentToken = null;
+        pendingToken = null;
+        pendingRoundData = null;
+        markers.forEach(marker => map.removeLayer(marker));
+        markers = [];
+        markersById = {};
+        gameSeed = generateSeed();
+        requestRound().catch(error => {
+            console.error('Erreur:', error);
+            document.getElementById('hints-list').innerHTML = '<li class="hint-item">Erreur de chargement</li>';
+        });
     }
 
     /**
@@ -934,22 +864,20 @@ style="height: 1em; vertical-align: -0.2em; margin-right: 0.3em;">Fausse Commune
     /* ========================================
        INITIALISATION AU CHARGEMENT
        ======================================== */
-
     /**
      * Fonction exécutée quand la page est complètement chargée
      */
     window.onload = () => {
-        warmupAPI(); // Lance l'appel de préchauffage immédiatement
-        initMap(); // Initialise la carte
-        loadBestScore(); // Charge le meilleur score
-
-        // Affiche la modale d'aide si c'est la première visite
+        initMap();
+        loadBestScore();
         if (bestScore === 0) {
             showHelp();
         }
-
-        gameSeed = generateSeed(); // Génère une seed
-        loadRound(0); // Charge le premier round
+        gameSeed = generateSeed();
+        requestRound().catch(error => {
+            console.error('Erreur:', error);
+            document.getElementById('hints-list').innerHTML = '<li class="hint-item">Erreur de chargement</li>';
+        });
     };
 
     /**
