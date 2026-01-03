@@ -867,7 +867,7 @@ style="height: 1em; vertical-align: -0.2em; margin-right: 0.3em;">Fausse Commune
                 document.getElementById('final-round').textContent = score;
 
                 // Génère l'historique visuel
-                const historyString = roundHistory.map(r => r ? '🟢' : '🔴').join('');
+                const historyString = roundHistory.map(r => r ? '🟢' : '❌').join('');
                 document.getElementById('history-display').textContent = historyString;
 
                 document.getElementById('game-over-modal').classList.add('show');
@@ -890,7 +890,7 @@ style="height: 1em; vertical-align: -0.2em; margin-right: 0.3em;">Fausse Commune
     function shareResult() {
         const score = roundHistory.filter(r => r).length;
         const nbRoundsPlayed = currentRound + 1;
-        const historyString = roundHistory.map(r => r ? '🟢' : '🔴').join('');
+        const historyString = roundHistory.map(r => r ? '🟢' : '❌').join('');
         const shareText = `FAUSSE COMMUNE\nJ'ai localisé correctement ${score} régions sur ${nbRoundsPlayed} !\n${historyString}\n\nJouez sur faussecommune.fr`;
 
         navigator.clipboard.writeText(shareText).then(() => {
