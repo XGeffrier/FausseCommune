@@ -853,14 +853,18 @@ style="height: 1em; vertical-align: -0.2em; margin-right: 0.3em;">Fausse Commune
         lives--;
         updateLivesDisplay();
 
-        // Attend 1 seconde avant d'afficher la modale
-        setTimeout(() => {
-            if (lives > 0) {
-                // Il reste des vies : affiche la modale de vie perdue
-                document.getElementById('remaining-lives').textContent = lives;
-                document.getElementById('life-lost-modal').classList.add('show');
-            } else {
-                // Plus de vies : Game Over
+        // Affiche toujours la notification de vie perdue
+        showNotification(`💔 Vie perdue ! Il vous reste ${lives} vie(s).`, '#dc3545');
+
+        // Gère la suite selon les vies restantes
+        if (lives > 0) {
+            // Il reste des vies : attend 2.5 secondes avant de passer au round suivant
+            setTimeout(() => {
+                loadRound(currentRound + 1);
+            }, 2500);
+        } else {
+            // Plus de vies : Game Over après 2.5 secondes
+            setTimeout(() => {
                 const score = roundHistory.filter(r => r).length; // Compte les victoires
                 saveBestScore(score);
 
@@ -871,8 +875,8 @@ style="height: 1em; vertical-align: -0.2em; margin-right: 0.3em;">Fausse Commune
                 document.getElementById('history-display').textContent = historyString;
 
                 document.getElementById('game-over-modal').classList.add('show');
-            }
-        }, 1000);
+            }, 2500);
+        }
     }
 
     /**
@@ -882,6 +886,21 @@ style="height: 1em; vertical-align: -0.2em; margin-right: 0.3em;">Fausse Commune
         document.getElementById('life-lost-modal').classList.remove('show');
         // Passe au round suivant SANS incrémenter le score
         loadRound(currentRound + 1);
+    }
+
+    /**
+     * Affiche une notification temporaire
+     */
+    function showNotification(message, backgroundColor) {
+        const notification = document.getElementById('notification');
+        notification.textContent = message;
+        notification.style.background = backgroundColor;
+        notification.style.opacity = '1';
+
+        // Disparaît après 2 secondes
+        setTimeout(() => {
+            notification.style.opacity = '0';
+        }, 2000);
     }
 
     /**
