@@ -140,10 +140,10 @@
         }
 
         .hints-header {
-            font-size: 24px;
+            font-size: 20px;
             font-weight: bold;
             color: #333;
-            margin-bottom: 20px;
+            margin-bottom: 15px;
             text-align: center;
             flex-shrink: 0;
         }
@@ -340,12 +340,14 @@
             }
 
             .title {
-                font-size: 24px;
+                font-size: 20px;
+                line-height: 1.2;
             }
 
-            /* Cache le texte "Comment jouer" sur mobile */
+            /* Affiche le texte "Règles" sur mobile */
             .help-text {
-                display: none;
+                display: block;
+                font-size: 16px;
             }
 
             .help-button {
@@ -403,11 +405,12 @@
 <div class="container">
     <!-- ===== HEADER AVEC TITRE ET BOUTON AIDE ===== -->
     <div class="header">
-<div class="title"><img src="/static/favicon.svg" alt="Logo"
-style="height: 1em; vertical-align: -0.2em; margin-right: 0.3em;">Fausse Commune
-        </div>
+<div class="title">
+    <img src="/static/favicon.svg" alt="Logo" style="height: 1em; vertical-align: -0.2em; margin-right: 0.3em;">
+    <span class="title-text">Fausse Commune</span>
+</div>
         <div class="help-wrapper">
-            <span class="help-text">Règles du jeu</span>
+            <span class="help-text">Règles</span>
             <button class="help-button" onclick="showHelp()" aria-label="Aide">?</button>
         </div>
     </div>
@@ -430,6 +433,7 @@ style="height: 1em; vertical-align: -0.2em; margin-right: 0.3em;">Fausse Commune
         <div class="hints-container">
             <!-- Section indices -->
             <div class="hints-section">
+                <div class="hints-header">Où sont ces fausses communes ?</div>
                 <ul class="hints-list" id="hints-list">
                     <li class="loading">Chargement...</li>
                 </ul>
@@ -496,7 +500,7 @@ style="height: 1em; vertical-align: -0.2em; margin-right: 0.3em;">Fausse Commune
         <div class="modal-text">
             <p>Fausse Commune est un jeu gratuit qui va tester votre instinct géographique.</p>
             <p>Le jeu génère des faux noms de communes françaises, qui ressemblent à des noms réels de communes aux alentours d'un point donné.</p>
-            <p>Votre but est de deviner de quel endroit il s'agit en lisant les noms générés. Cliquez sur un des points rouges de la carte pour donner votre réponse.</p>
+            <p>Votre but est de deviner de quel endroit il s'agit en lisant les noms générés. Cliquez sur un des points bleus la carte pour donner votre réponse.</p>
             <p>Attention, au fil des manches ces points sont de plus en plus nombreux et resserrés.</p>
             <p>Bonne chance !</p>
         </div>
@@ -719,8 +723,8 @@ style="height: 1em; vertical-align: -0.2em; margin-right: 0.3em;">Fausse Commune
         // Marqueur pour les BONNES coordonnées
         // Note : Leaflet utilise [latitude, longitude]
         const goodMarker = L.circleMarker([data.good_coords[0], data.good_coords[1]], {
-            color: '#dc3545',
-            fillColor: '#dc3545',
+            color: '#000080',
+            fillColor: '#000080',
             fillOpacity: 0.8,
             radius: 12
         }).addTo(map);
@@ -740,8 +744,8 @@ style="height: 1em; vertical-align: -0.2em; margin-right: 0.3em;">Fausse Commune
         // Marqueurs pour les MAUVAISES coordonnées
         data.bad_coords.forEach(coords => {
             const badMarker = L.circleMarker([coords[0], coords[1]], {
-                color: '#dc3545',
-                fillColor: '#dc3545',
+                color: '#000080',
+                fillColor: '#000080',
                 fillOpacity: 0.8,
                 radius: 12
             }).addTo(map);
@@ -749,7 +753,7 @@ style="height: 1em; vertical-align: -0.2em; margin-right: 0.3em;">Fausse Commune
             // Ajoute un événement au clic sur le mauvais marqueur
             badMarker.on('click', () => {
                 if (!gameBlocked) {
-                    handleWrongAnswer();
+                    handleWrongAnswer(badMarker);
                 }
             });
 
@@ -804,6 +808,13 @@ style="height: 1em; vertical-align: -0.2em; margin-right: 0.3em;">Fausse Commune
         const score = roundHistory.filter(r => r).length;
         updateCurrentScore(score);
 
+        // Vérifie si le joueur gagne une vie (tous les 8 points)
+        if (score > 0 && score % 8 === 0) {
+            lives++;
+            updateLivesDisplay();
+            showNotification('🎉 Vie bonus gagnée !', '#28a745');
+        }
+
         // Révèle la réponse immédiatement
         revealAnswer();
 
@@ -833,9 +844,18 @@ style="height: 1em; vertical-align: -0.2em; margin-right: 0.3em;">Fausse Commune
     /**
      * Appelée quand le joueur clique sur une mauvaise réponse
      */
-    function handleWrongAnswer() {
+    function handleWrongAnswer(clickedMarker) {
         // Enregistre la défaite
         roundHistory.push(false);
+
+        // Colore le mauvais marqueur cliqué en rouge
+        if (clickedMarker) {
+            clickedMarker.setStyle({
+                color: '#dc3545',
+                fillColor: '#dc3545',
+                fillOpacity: 0.8
+            });
+        }
 
         // Révèle la réponse immédiatement
         revealAnswer();
@@ -844,26 +864,30 @@ style="height: 1em; vertical-align: -0.2em; margin-right: 0.3em;">Fausse Commune
         lives--;
         updateLivesDisplay();
 
-        // Attend 1 seconde avant d'afficher la modale
-        setTimeout(() => {
-            if (lives > 0) {
-                // Il reste des vies : affiche la modale de vie perdue
-                document.getElementById('remaining-lives').textContent = lives;
-                document.getElementById('life-lost-modal').classList.add('show');
-            } else {
-                // Plus de vies : Game Over
+        // Affiche toujours la notification de vie perdue
+        showNotification(`💔 Vie perdue ! Il vous reste ${lives} vie(s).`, '#dc3545');
+
+        // Gère la suite selon les vies restantes
+        if (lives > 0) {
+            // Il reste des vies : attend 2.5 secondes avant de passer au round suivant
+            setTimeout(() => {
+                loadRound(currentRound + 1);
+            }, 2500);
+        } else {
+            // Plus de vies : Game Over après 2.5 secondes
+            setTimeout(() => {
                 const score = roundHistory.filter(r => r).length; // Compte les victoires
                 saveBestScore(score);
 
                 document.getElementById('final-round').textContent = score;
 
                 // Génère l'historique visuel
-                const historyString = roundHistory.map(r => r ? '🟢' : '🔴').join('');
+                const historyString = roundHistory.map(r => r ? '🟢' : '❌').join('');
                 document.getElementById('history-display').textContent = historyString;
 
                 document.getElementById('game-over-modal').classList.add('show');
-            }
-        }, 1000);
+            }, 2500);
+        }
     }
 
     /**
@@ -876,12 +900,27 @@ style="height: 1em; vertical-align: -0.2em; margin-right: 0.3em;">Fausse Commune
     }
 
     /**
+     * Affiche une notification temporaire
+     */
+    function showNotification(message, backgroundColor) {
+        const notification = document.getElementById('notification');
+        notification.textContent = message;
+        notification.style.background = backgroundColor;
+        notification.style.opacity = '1';
+
+        // Disparaît après 2 secondes
+        setTimeout(() => {
+            notification.style.opacity = '0';
+        }, 2000);
+    }
+
+    /**
      * Copie le résumé de la partie dans le presse-papier
      */
     function shareResult() {
         const score = roundHistory.filter(r => r).length;
         const nbRoundsPlayed = currentRound + 1;
-        const historyString = roundHistory.map(r => r ? '🟢' : '🔴').join('');
+        const historyString = roundHistory.map(r => r ? '🟢' : '❌').join('');
         const shareText = `FAUSSE COMMUNE\nJ'ai localisé correctement ${score} régions sur ${nbRoundsPlayed} !\n${historyString}\n\nJouez sur faussecommune.fr`;
 
         navigator.clipboard.writeText(shareText).then(() => {
@@ -936,12 +975,25 @@ style="height: 1em; vertical-align: -0.2em; margin-right: 0.3em;">Fausse Commune
        ======================================== */
 
     /**
+     * Ajuste le titre sur mobile (deux lignes)
+     */
+    function adjustTitleForMobile() {
+        const titleText = document.querySelector('.title-text');
+        if (window.innerWidth <= 768) {
+            titleText.textContent = 'Fausse\nCommune';
+        } else {
+            titleText.textContent = 'Fausse Commune';
+        }
+    }
+
+    /**
      * Fonction exécutée quand la page est complètement chargée
      */
     window.onload = () => {
         warmupAPI(); // Lance l'appel de préchauffage immédiatement
         initMap(); // Initialise la carte
         loadBestScore(); // Charge le meilleur score
+        adjustTitleForMobile(); // Ajuste le titre pour mobile
 
         // Affiche la modale d'aide si c'est la première visite
         if (bestScore === 0) {
@@ -959,6 +1011,7 @@ style="height: 1em; vertical-align: -0.2em; margin-right: 0.3em;">Fausse Commune
         if (map) {
             map.invalidateSize();
         }
+        adjustTitleForMobile();
     });
 </script>
 </body>
