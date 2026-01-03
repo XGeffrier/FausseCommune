@@ -496,7 +496,7 @@ style="height: 1em; vertical-align: -0.2em; margin-right: 0.3em;">Fausse Commune
         <div class="modal-text">
             <p>Fausse Commune est un jeu gratuit qui va tester votre instinct géographique.</p>
             <p>Le jeu génère des faux noms de communes françaises, qui ressemblent à des noms réels de communes aux alentours d'un point donné.</p>
-            <p>Votre but est de deviner de quel endroit il s'agit en lisant les noms générés. Cliquez sur un des points rouges de la carte pour donner votre réponse.</p>
+            <p>Votre but est de deviner de quel endroit il s'agit en lisant les noms générés. Cliquez sur un des points bleus la carte pour donner votre réponse.</p>
             <p>Attention, au fil des manches ces points sont de plus en plus nombreux et resserrés.</p>
             <p>Bonne chance !</p>
         </div>
@@ -719,8 +719,8 @@ style="height: 1em; vertical-align: -0.2em; margin-right: 0.3em;">Fausse Commune
         // Marqueur pour les BONNES coordonnées
         // Note : Leaflet utilise [latitude, longitude]
         const goodMarker = L.circleMarker([data.good_coords[0], data.good_coords[1]], {
-            color: '#dc3545',
-            fillColor: '#dc3545',
+            color: '#000080',
+            fillColor: '#000080',
             fillOpacity: 0.8,
             radius: 12
         }).addTo(map);
@@ -740,8 +740,8 @@ style="height: 1em; vertical-align: -0.2em; margin-right: 0.3em;">Fausse Commune
         // Marqueurs pour les MAUVAISES coordonnées
         data.bad_coords.forEach(coords => {
             const badMarker = L.circleMarker([coords[0], coords[1]], {
-                color: '#dc3545',
-                fillColor: '#dc3545',
+                color: '#000080',
+                fillColor: '#000080',
                 fillOpacity: 0.8,
                 radius: 12
             }).addTo(map);
