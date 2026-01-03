@@ -804,6 +804,13 @@ style="height: 1em; vertical-align: -0.2em; margin-right: 0.3em;">Fausse Commune
         const score = roundHistory.filter(r => r).length;
         updateCurrentScore(score);
 
+        // Vérifie si le joueur gagne une vie (tous les 8 points)
+        if (score > 0 && score % 8 === 0) {
+            lives++;
+            updateLivesDisplay();
+            showNotification('🎉 Vie bonus gagnée !', '#28a745');
+        }
+
         // Révèle la réponse immédiatement
         revealAnswer();
 
