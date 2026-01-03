@@ -340,12 +340,14 @@
             }
 
             .title {
-                font-size: 24px;
+                font-size: 20px;
+                line-height: 1.2;
             }
 
-            /* Cache le texte "Comment jouer" sur mobile */
+            /* Affiche le texte "Règles du jeu" sur mobile */
             .help-text {
-                display: none;
+                display: block;
+                font-size: 16px;
             }
 
             .help-button {
@@ -403,9 +405,10 @@
 <div class="container">
     <!-- ===== HEADER AVEC TITRE ET BOUTON AIDE ===== -->
     <div class="header">
-<div class="title"><img src="/static/favicon.svg" alt="Logo"
-style="height: 1em; vertical-align: -0.2em; margin-right: 0.3em;">Fausse Commune
-        </div>
+<div class="title">
+    <img src="/static/favicon.svg" alt="Logo" style="height: 1em; vertical-align: -0.2em; margin-right: 0.3em;">
+    <span class="title-text">Fausse Commune</span>
+</div>
         <div class="help-wrapper">
             <span class="help-text">Règles du jeu</span>
             <button class="help-button" onclick="showHelp()" aria-label="Aide">?</button>
@@ -971,12 +974,25 @@ style="height: 1em; vertical-align: -0.2em; margin-right: 0.3em;">Fausse Commune
        ======================================== */
 
     /**
+     * Ajuste le titre sur mobile (deux lignes)
+     */
+    function adjustTitleForMobile() {
+        const titleText = document.querySelector('.title-text');
+        if (window.innerWidth <= 768) {
+            titleText.textContent = 'Fausse\nCommune';
+        } else {
+            titleText.textContent = 'Fausse Commune';
+        }
+    }
+
+    /**
      * Fonction exécutée quand la page est complètement chargée
      */
     window.onload = () => {
         warmupAPI(); // Lance l'appel de préchauffage immédiatement
         initMap(); // Initialise la carte
         loadBestScore(); // Charge le meilleur score
+        adjustTitleForMobile(); // Ajuste le titre pour mobile
 
         // Affiche la modale d'aide si c'est la première visite
         if (bestScore === 0) {
@@ -994,6 +1010,7 @@ style="height: 1em; vertical-align: -0.2em; margin-right: 0.3em;">Fausse Commune
         if (map) {
             map.invalidateSize();
         }
+        adjustTitleForMobile();
     });
 </script>
 </body>
