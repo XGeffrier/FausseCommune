@@ -140,10 +140,10 @@
         }
 
         .hints-header {
-            font-size: 24px;
+            font-size: 20px;
             font-weight: bold;
             color: #333;
-            margin-bottom: 20px;
+            margin-bottom: 15px;
             text-align: center;
             flex-shrink: 0;
         }
@@ -344,7 +344,7 @@
                 line-height: 1.2;
             }
 
-            /* Affiche le texte "Règles du jeu" sur mobile */
+            /* Affiche le texte "Règles" sur mobile */
             .help-text {
                 display: block;
                 font-size: 16px;
@@ -410,7 +410,7 @@
     <span class="title-text">Fausse Commune</span>
 </div>
         <div class="help-wrapper">
-            <span class="help-text">Règles du jeu</span>
+            <span class="help-text">Règles</span>
             <button class="help-button" onclick="showHelp()" aria-label="Aide">?</button>
         </div>
     </div>
@@ -433,6 +433,7 @@
         <div class="hints-container">
             <!-- Section indices -->
             <div class="hints-section">
+                <div class="hints-header">Où sont ces fausses communes ?</div>
                 <ul class="hints-list" id="hints-list">
                     <li class="loading">Chargement...</li>
                 </ul>
