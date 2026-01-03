@@ -749,7 +749,7 @@ style="height: 1em; vertical-align: -0.2em; margin-right: 0.3em;">Fausse Commune
             // Ajoute un événement au clic sur le mauvais marqueur
             badMarker.on('click', () => {
                 if (!gameBlocked) {
-                    handleWrongAnswer();
+                    handleWrongAnswer(badMarker);
                 }
             });
 
@@ -833,9 +833,18 @@ style="height: 1em; vertical-align: -0.2em; margin-right: 0.3em;">Fausse Commune
     /**
      * Appelée quand le joueur clique sur une mauvaise réponse
      */
-    function handleWrongAnswer() {
+    function handleWrongAnswer(clickedMarker) {
         // Enregistre la défaite
         roundHistory.push(false);
+
+        // Colore le mauvais marqueur cliqué en rouge
+        if (clickedMarker) {
+            clickedMarker.setStyle({
+                color: '#dc3545',
+                fillColor: '#dc3545',
+                fillOpacity: 0.8
+            });
+        }
 
         // Révèle la réponse immédiatement
         revealAnswer();
