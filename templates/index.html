@@ -924,14 +924,7 @@
         const shareText = `FAUSSE COMMUNE\nJ'ai localisé correctement ${score} régions sur ${nbRoundsPlayed} !\n${historyString}\n\nJouez sur faussecommune.fr`;
 
         navigator.clipboard.writeText(shareText).then(() => {
-            // Affiche la notification
-            const notification = document.getElementById('notification');
-            notification.style.opacity = '1';
-
-            // Disparaît après 5 secondes
-            setTimeout(() => {
-                notification.style.opacity = '0';
-            }, 5000);
+            showNotification('Résumé de la partie copié dans le presse-papier', '#000080');
         }).catch(err => {
             console.error('Erreur lors de la copie:', err);
         });
